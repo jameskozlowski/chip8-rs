@@ -239,6 +239,76 @@ impl Chip8 {
                 }
                 _ => panic!("Unknown opcode: {:#X}", opcode),
             },
+            0xF000 => match opcode & 0x00FF {
+                0x0007 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.v[x] = self.delay_timer;
+                }
+                0x000A => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let mut key_press = false;
+                    for i in 0..16 {
+                        if self.key[i] != 0 {
+                            self.v[x] = i as u8;
+                            key_press = true;
+                        }
+                    }
+                    if !key_press {
+                        self.pc -= 2;
+                    }
+                }
+                0x0015 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.delay_timer = self.v[x];
+                }
+                0x0018 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.sound_timer = self.v[x];
+                }
+                0x001E => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.i += self.v[x] as u16;
+                }
+                0x0029 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.i = self.v[x] as u16 * 5;
+                }
+                0x0030 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.i = 0x50 + self.v[x] as u16 * 10;
+                }
+                0x0033 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.memory[self.i as usize] = self.v[x] / 100;
+                    self.memory[self.i as usize + 1] = (self.v[x] / 10) % 10;
+                    self.memory[self.i as usize + 2] = self.v[x] % 10;
+                }
+                0x0055 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    for i in 0..=x {
+                        self.memory[self.i as usize + i] = self.v[i];
+                    }
+                }
+                0x0065 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    for i in 0..=x {
+                        self.v[i] = self.memory[self.i as usize + i];
+                    }
+                }
+                0x0075 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    for i in 0..=x {
+                        self.memory[0x5F0 + i] = self.v[i];
+                    }
+                }
+                0x0085 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    for i in 0..=x {
+                        self.v[i] = self.memory[0x5F0 + i];
+                    }
+                }
+                _ => panic!("Unknown opcode: {:#X}", opcode),
+            },
             _ => panic!("Unknown opcode: {:#X}", opcode),
         }
     }
@@ -544,7 +614,7 @@ mod tests {
         c.memory[0x200] = (opcode >> 8) as u8;
         c.memory[0x201] = (opcode & 0xFF) as u8;
         c.emulate_cycle();
-        assert_ne!(c.v[0], 0x12);
+        assert_ne!(c.v[0], 0x00);
     }
     #[test]
     fn test_opcode_dxyn() {
@@ -598,5 +668,160 @@ mod tests {
         c.key[0] = 0;
         c.emulate_cycle();
         assert_eq!(c.pc, 0x204);
+    }
+    #[test]
+    fn test_opcode_fx07() {
+        let mut c = Chip8::new();
+        c.delay_timer = 0x12;
+        let opcode = 0xF007;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x12);
+    }
+    #[test]
+    fn test_opcode_fx0a() {
+        let mut c = Chip8::new();
+        c.key[0] = 1;
+        let opcode = 0xF00A;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0);
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0);
+        c.key[0] = 0;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0);
+        c.key[0] = 1;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0);
+    }
+    #[test]
+    fn test_opcode_fx15() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        let opcode = 0xF015;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.delay_timer, 0x12);
+    }
+    #[test]
+    fn test_opcode_fx18() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        let opcode = 0xF018;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.sound_timer, 0x12);
+    }
+    #[test]
+    fn test_opcode_fx1e() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.i = 0x34;
+        let opcode = 0xF01E;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.i, 0x46);
+    }
+    #[test]
+    fn test_opcode_fx29() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x5;
+        let opcode = 0xF029;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.i, 0x19);
+    }
+    #[test]
+    fn test_opcode_fx30() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x2;
+        let opcode = 0xF030;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.i, 0x64);
+    }
+    #[test]
+    fn test_opcode_fx33() {
+        let mut c = Chip8::new();
+        c.v[0] = 123;
+        let opcode = 0xF033;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.i = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.memory[0x200], 1);
+        assert_eq!(c.memory[0x201], 2);
+        assert_eq!(c.memory[0x202], 3);
+    }
+    #[test]
+    fn test_opcode_fx55() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        c.v[2] = 0x56;
+        let opcode = 0xF255;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.i = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.memory[0x200], 0x12);
+        assert_eq!(c.memory[0x201], 0x34);
+        assert_eq!(c.memory[0x202], 0x56);
+    }
+    #[test]
+    fn test_opcode_fx65() {
+        let mut c = Chip8::new();
+        c.memory[0x205] = 0x12;
+        c.memory[0x206] = 0x34;
+        c.memory[0x207] = 0x56;
+        let opcode = 0xF265;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.i = 0x205;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x12);
+        assert_eq!(c.v[1], 0x34);
+        assert_eq!(c.v[2], 0x56);
+    }
+    #[test]
+    fn test_opcode_fx75() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        c.v[2] = 0x56;
+        let opcode = 0xF275;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.i = 0x5F0;
+        c.emulate_cycle();
+        assert_eq!(c.memory[0x5F0], 0x12);
+        assert_eq!(c.memory[0x5F1], 0x34);
+        assert_eq!(c.memory[0x5F2], 0x56);
+    }
+    #[test]
+    fn test_opcode_fx85() {
+        let mut c = Chip8::new();
+        c.memory[0x5F0] = 0x12;
+        c.memory[0x5F1] = 0x34;
+        c.memory[0x5F2] = 0x56;
+        let opcode = 0xF285;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.i = 0x5F0;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x12);
+        assert_eq!(c.v[1], 0x34);
+        assert_eq!(c.v[2], 0x56);
     }
 }
