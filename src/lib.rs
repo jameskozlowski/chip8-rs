@@ -94,14 +94,24 @@ impl Chip8 {
             (self.memory[self.pc as usize] as u16) << 8 | self.memory[self.pc as usize + 1] as u16;
         self.pc += 2;
         match opcode & 0xF000 {
-            0x0000 => match opcode & 0x00FF {
-                0x00E0 => self.gfx = [0; 64 * 32],
-                0x00EE => {
-                    self.sp -= 1;
-                    self.pc = self.stack[self.sp as usize];
+            0x0000 => {
+                if (opcode & 0x00F0) == 0x00C0 {
+                    panic!("opcode not implemented: {:#X}", opcode)
                 }
-                _ => panic!("Unknown opcode: {:#X}", opcode),
-            },
+                match opcode & 0x00FF {
+                    0x00E0 => self.gfx = [0; 64 * 32],
+                    0x00EE => {
+                        self.sp -= 1;
+                        self.pc = self.stack[self.sp as usize];
+                    }
+                    0x00FB => panic!("opcode not implemented: {:#X}", opcode),
+                    0x00FC => panic!("opcode not implemented: {:#X}", opcode),
+                    0x00FD => panic!("opcode not implemented: {:#X}", opcode),
+                    0x00FE => panic!("opcode not implemented: {:#X}", opcode),
+                    0x00FF => panic!("opcode not implemented: {:#X}", opcode),
+                    _ => panic!("Unknown opcode: {:#X}", opcode),
+                }
+            }
             0x1000 => self.pc = opcode & 0x0FFF,
             0x2000 => {
                 self.stack[self.sp as usize] = self.pc;
