@@ -139,6 +139,60 @@ impl Chip8 {
                 let byte = (opcode & 0x00FF) as u8;
                 self.v[x] = self.v[x].wrapping_add(byte);
             }
+            0x8000 => match opcode & 0x000F {
+                0x0000 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[x] = self.v[y];
+                }
+                0x0001 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[x] |= self.v[y];
+                    self.v[0xF] = 0;
+                }
+                0x0002 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[x] &= self.v[y];
+                    self.v[0xF] = 0;
+                }
+                0x0003 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[x] ^= self.v[y];
+                }
+                0x0004 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    let sum = self.v[x] as u16 + self.v[y] as u16;
+                    self.v[0xF] = if sum > 0xFF { 1 } else { 0 };
+                    self.v[x] = sum as u8;
+                }
+                0x0005 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
+                    self.v[x] = self.v[x].wrapping_sub(self.v[y]);
+                }
+                0x0006 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.v[0xF] = self.v[x] & 0x1;
+                    self.v[x] >>= 1;
+                }
+                0x0007 => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    let y = ((opcode & 0x00F0) >> 4) as usize;
+                    self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
+                    self.v[x] = self.v[y].wrapping_sub(self.v[x]);
+                }
+                0x000E => {
+                    let x = ((opcode & 0x0F00) >> 8) as usize;
+                    self.v[0xF] = (self.v[x] & 0x80) >> 7;
+                    self.v[x] <<= 1;
+                }
+                _ => panic!("Unknown opcode: {:#X}", opcode),
+            },
             _ => panic!("Unknown opcode: {:#X}", opcode),
         }
     }
@@ -269,5 +323,138 @@ mod tests {
         c.memory[0x201] = (opcode & 0xFF) as u8;
         c.emulate_cycle();
         assert_eq!(c.v[0], 0x24);
+    }
+    #[test]
+    fn test_opcode_8xy0() {
+        let mut c = Chip8::new();
+        c.v[1] = 0x12;
+        let opcode = 0x8010;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x12);
+    }
+    #[test]
+    fn test_opcode_8xy1() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        c.v[0xF] = 1;
+        let opcode = 0x8011;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x34 | 0x12);
+        assert_eq!(c.v[0xF], 0);
+    }
+    #[test]
+    fn test_opcode_8xy2() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        c.v[0xF] = 1;
+        let opcode = 0x8012;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x12 & 0x34);
+        assert_eq!(c.v[0xF], 0);
+    }
+    #[test]
+    fn test_opcode_8xy3() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        let opcode = 0x8013;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x26);
+    }
+    #[test]
+    fn test_opcode_8xy4() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x12;
+        c.v[1] = 0x34;
+        let opcode = 0x8014;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x46);
+        assert_eq!(c.v[0xF], 0);
+        c.v[0] = 0xFF;
+        c.v[1] = 0x01;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x00);
+        assert_eq!(c.v[0xF], 1);
+    }
+    #[test]
+    fn test_opcode_8xy5() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x34;
+        c.v[1] = 0x12;
+        let opcode = 0x8015;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x22);
+        assert_eq!(c.v[0xF], 1);
+        c.v[0] = 0x01;
+        c.v[1] = 0x02;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0xFF);
+        assert_eq!(c.v[0xF], 0);
+    }
+    #[test]
+    fn test_opcode_8xy6() {
+        let mut c = Chip8::new();
+        c.v[0] = 0b00001010;
+        let opcode = 0x8006;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0b0101);
+        assert_eq!(c.v[0xF], 0);
+        c.v[0] = 0b00001011;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0b0101);
+        assert_eq!(c.v[0xF], 1);
+    }
+    #[test]
+    fn test_opcode_8xy7() {
+        let mut c = Chip8::new();
+        c.v[0] = 0x34;
+        c.v[1] = 0x12;
+        let opcode = 0x8017;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0xDE);
+        assert_eq!(c.v[0xF], 1);
+        c.v[0] = 0x01;
+        c.v[1] = 0x02;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0x01);
+        assert_eq!(c.v[0xF], 0);
+    }
+    #[test]
+    fn test_opcode_8xye() {
+        let mut c = Chip8::new();
+        c.v[0] = 0b10100000;
+        let opcode = 0x800E;
+        c.memory[0x200] = (opcode >> 8) as u8;
+        c.memory[0x201] = (opcode & 0xFF) as u8;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0b01000000);
+        assert_eq!(c.v[0xF], 1);
+        c.v[0] = 0b00110000;
+        c.pc = 0x200;
+        c.emulate_cycle();
+        assert_eq!(c.v[0], 0b01100000);
+        assert_eq!(c.v[0xF], 0);
     }
 }
