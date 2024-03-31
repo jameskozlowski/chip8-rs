@@ -1,7 +1,7 @@
 #![allow(dead_code)]
-mod chip8_disassember;
+pub mod chip8_disassember;
 
-struct Chip8 {
+pub struct Chip8 {
     /*
      Memory Map:
      +---------------+= 0xFFF (4095) End of Chip-8 RAM
@@ -88,6 +88,11 @@ const CHIP8_FONTSET: [u8; 240] = [
 ];
 
 impl Chip8 {
+    /// Create a new Chip-8 instance
+    /// # Example
+    /// ```
+    /// let c = Chip8::new();
+    /// ```
     pub fn new() -> Self {
         let mut c = Self {
             memory: [0; 4096],
@@ -106,82 +111,144 @@ impl Chip8 {
         return c;
     }
 
+    /// Load a game into the memory
+    /// # Arguments
+    /// * `game` - The game to load
+    /// # Example
+    /// ```
+    /// let mut c = Chip8::new();
+    /// c.load_game(vec![0x12, 0x34]);
+    /// ```
     pub fn load_game(&mut self, game: Vec<u8>) {
         for (i, byte) in game.iter().enumerate() {
             self.memory[i + 0x200] = *byte;
         }
     }
 
+    /// Load a game from a file
+    /// # Arguments
+    /// * `path` - The path to the file to load
+    /// # Returns
+    /// An error if the file could not be read
+    /// # Example
+    /// ```
+    /// let mut c = Chip8::new();
+    /// c.load_game_from_file("game.ch8");
+    /// ```
     pub fn load_game_from_file(&mut self, path: &str) -> Result<(), std::io::Error> {
         let game = std::fs::read(path)?;
         self.load_game(game);
         return Ok(());
     }
 
+    /// Set the state of a key
+    /// # Arguments
+    /// * `key` - The key to set the state of
+    /// * `state` - The state to set the key to
+    /// # Example
+    /// ```
+    /// let mut c = Chip8::new();
+    /// c.set_key(0, true);
+    /// ```
     pub fn set_key(&mut self, key: u8, state: bool) {
         self.key[key as usize] = state as u8;
     }
 
+    /// Get the state of a key
+    /// # Arguments
+    /// * `key` - The key to get the state of
+    /// # Returns
+    /// The state of the key
+    /// # Example
+    /// ```
+    /// let c = Chip8::new();
+    /// c.set_key(0, true);
+    /// assert_eq!(c.get_key(0), true);
+    /// ```
     pub fn get_key(&self, key: u8) -> bool {
         return self.key[key as usize] == 1;
     }
 
+    /// Get the current display memory
+    /// The display memory is a 64x32 array of u8
+    /// Each byte represents a pixel, with 0 being off and 1 being on
+    /// # Example
+    /// ```
+    /// let c = Chip8::new();
+    /// let gfx = c.get_gfx();
+    /// assert_eq!(gfx.len(), 64 * 32);
+    /// ```
     pub fn get_gfx(&self) -> &[u8] {
         return &self.gfx;
     }
 
     /**********************************************************************************************
-     * CHIP-8 has 35 opcodes, which are all two bytes long and stored big-endian.
-     * The opcodes are listed below, in hexadecimal and with the following symbols:
-     *
-     * OPCODE     DISC (Instructions marked with (*) are new in SUPER-CHIP.)
-     * --------------------------------------------------------------------------------------------
-     * 00CN*    Scroll display N lines down
-     * 0NNN        RCA 1802 program at address NNN. Not necessary for most ROMs.
-     * 00E0     Clears the screen.
-     * 00EE     Returns from a subroutine.
-     * 00FB*    Scroll display 4 pixels right
-     * 00FC*    Scroll display 4 pixels left
-     * 00FD*    Exit CHIP interpreter
-     * 00FE*    Disable extended screen mode
-     * 00FF*    Enable extended screen mode for full-screen graphics
-     * 1NNN     Jumps to address NNN.
-     * 2NNN     Calls subroutine at NNN.
-     * 3XNN     Skips the next instruction if VX equals NN.
-     * 4XNN     Skips the next instruction if VX doesn't equal NN.
-     * 5XY0     Skips the next instruction if VX equals VY.
-     * 6XNN     Sets VX to NN.
-     * 7XNN     Adds NN to VX.
-     * 8XY0     Sets VX to the value of VY.
-     * 8XY1     Sets VX to VX or VY. (Bitwise OR operation) VF is reset to 0.
-     * 8XY2     Sets VX to VX and VY. (Bitwise AND operation) VF is reset to 0.
-     * 8XY3     Sets VX to VX xor VY. VF is reset to 0.
-     * 8XY4     Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
-     * 8XY5     VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-     * 8XY6     Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.
-     * 8XY7     Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
-     * 8XYE     Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
-     * 9XY0     Skips the next instruction if VX doesn't equal VY.
-     * ANNN     Sets I to the address NNN.
-     * BNNN     Jumps to the address NNN plus V0.
-     * CXNN     Sets VX to the result of a bitwise and operation on a random number and NN.
-     * DXYN*    Show N-byte sprite from M(I) at coords (VX,VY), VF :=
-     *          collision. If N=0 and extended mode, show 16x16 sprite.
-     * EX9E     Skips the next instruction if the key stored in VX is pressed.
-     * EXA1     Skips the next instruction if the key stored in VX isn't pressed.
-     * FX07     Sets VX to the value of the delay timer.
-     * FX0A     A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
-     * FX15     Sets the delay timer to VX.
-     * FX18     Sets the sound timer to VX.
-     * FX1E     Adds VX to I.[3]
-     * FX29     sets I to the location of the sprite for the character in VX. Characters 0-F  are represented by a 4x5 font.
-     * FX30*    Point I to 10-byte font sprite for digit VX (0..9)
-     * FX33     Stores the binary-coded decimal representation of VX, with the most significant of three digits at the address in I.
-     * FX55     Stores V0 to VX (including VX) in memory starting at address I.[4]
-     * FX65     Fills V0 to VX (including VX) with values from memory starting at address I.
-     * FX75*    Store V0..VX in RPL user flags (X <= 7)
-     * FX85*    Read V0..VX from RPL user flags (X <= 7)
-     **********************************************************************************************/
+    * CHIP-8 has 35 opcodes, which are all two bytes long and stored big-endian.
+    * The opcodes are listed below, in hexadecimal and with the following symbols:
+    *
+    * OPCODE     DISC (Instructions marked with (*) are new in SUPER-CHIP.)
+    * --------------------------------------------------------------------------------------------
+    * 00CN*    Scroll display N lines down
+    * 0NNN        RCA 1802 program at address NNN. Not necessary for most ROMs.
+    * 00E0     Clears the screen.
+    * 00EE     Returns from a subroutine.
+    * 00FB*    Scroll display 4 pixels right
+    * 00FC*    Scroll display 4 pixels left
+    * 00FD*    Exit CHIP interpreter
+    * 00FE*    Disable extended screen mode
+    * 00FF*    Enable extended screen mode for full-screen graphics
+    * 1NNN     Jumps to address NNN.
+    * 2NNN     Calls subroutine at NNN.
+    * 3XNN     Skips the next instruction if VX equals NN.
+    * 4XNN     Skips the next instruction if VX doesn't equal NN.
+    * 5XY0     Skips the next instruction if VX equals VY.
+    * 6XNN     Sets VX to NN.
+    * 7XNN     Adds NN to VX.
+    * 8XY0     Sets VX to the value of VY.
+    * 8XY1     Sets VX to VX or VY. (Bitwise OR operation) VF is reset to 0.
+    * 8XY2     Sets VX to VX and VY. (Bitwise AND operation) VF is reset to 0.
+    * 8XY3     Sets VX to VX xor VY. VF is reset to 0.
+    * 8XY4     Adds VY to VX. VF is set to 1 when there's a carry, and to 0 when there isn't.
+    * 8XY5     VY is subtracted from VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
+    * 8XY6     Shifts VX right by one. VF is set to the value of the least significant bit of VX before the shift.
+    * 8XY7     Sets VX to VY minus VX. VF is set to 0 when there's a borrow, and 1 when there isn't.
+    * 8XYE     Shifts VX left by one. VF is set to the value of the most significant bit of VX before the shift.
+    * 9XY0     Skips the next instruction if VX doesn't equal VY.
+    * ANNN     Sets I to the address NNN.
+    * BNNN     Jumps to the address NNN plus V0.
+    * CXNN     Sets VX to the result of a bitwise and operation on a random number and NN.
+    * DXYN*    Show N-byte sprite from M(I) at coords (VX,VY), VF :=
+    *          collision. If N=0 and extended mode, show 16x16 sprite.
+    * EX9E     Skips the next instruction if the key stored in VX is pressed.
+    * EXA1     Skips the next instruction if the key stored in VX isn't pressed.
+    * FX07     Sets VX to the value of the delay timer.
+    * FX0A     A key press is awaited, and then stored in VX. (Blocking Operation. All instruction halted until next key event)
+    * FX15     Sets the delay timer to VX.
+    * FX18     Sets the sound timer to VX.
+    * FX1E     Adds VX to I.[3]
+    * FX29     sets I to the location of the sprite for the character in VX. Characters 0-F  are represented by a 4x5 font.
+    * FX30*    Point I to 10-byte font sprite for digit VX (0..9)
+    * FX33     Stores the binary-coded decimal representation of VX, with the most significant of three digits at the address in I.
+    * FX55     Stores V0 to VX (including VX) in memory starting at address I.[4]
+    * FX65     Fills V0 to VX (including VX) with values from memory starting at address I.
+    * FX75*    Store V0..VX in RPL user flags (X <= 7)
+    * FX85*    Read V0..VX from RPL user flags (X <= 7)
+
+    **********************************************************************************************/
+    /// Emulate one cycle of the Chip-8 CPU
+    /// This function will read the opcode from the memory, decode it and execute it
+    /// The function will also decrement the delay and sound timers
+    /// # Example
+    /// ```
+    /// let mut c = Chip8::new();
+    /// c.load_game(vec![0x12, 0x34]);
+    /// c.emulate_cycle();
+    /// assert_eq!(c.pc, 0x234);
+    ///
+    /// ```
+    /// # Panics
+    /// This function will panic if it encounters an unknown opcode
+    /// # Note
     pub fn emulate_cycle(&mut self) {
         let opcode =
             (self.memory[self.pc as usize] as u16) << 8 | self.memory[self.pc as usize + 1] as u16;

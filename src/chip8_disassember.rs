@@ -1,4 +1,4 @@
-mod chip8_disassembler {
+pub mod chip8_disassembler {
     use std::str;
 
     struct OpCode {
@@ -288,11 +288,33 @@ mod chip8_disassembler {
         return Err("Invalid OpCode");
     }
 
+    /// Dissasemble a OpCode from a string
+    /// # Arguments
+    /// * `code` - A string slice that holds the OpCode
+    /// # Returns
+    /// * A string with the dissasembled OpCode
+    /// # Example
+    /// ```
+    /// let code = "00E0";
+    /// let result = dissasemble_op_code_from_str(code).expect("fail");
+    /// assert_eq!(result, "CLS");
+    /// ```
     pub fn dissasemble_op_code_from_str(code: &str) -> Result<String, &str> {
         let code = hex_to_u16(code);
         return dissasemble_op_code_from_u16(code);
     }
 
+    /// Dissasemble a OpCode from a u16
+    /// # Arguments
+    /// * `code` - A u16 that holds the OpCode
+    /// # Returns
+    /// * A string with the dissasembled OpCode
+    /// # Example
+    /// ```
+    /// let code = 0x00E0;
+    /// let result = dissasemble_op_code_from_u16(code).expect("fail");
+    /// assert_eq!(result, "CLS");
+    /// ```
     pub fn dissasemble_op_code_from_u16(code: u16) -> Result<String, &'static str> {
         let op_code = get_op_code_from_hex(code)?;
         let mut ret = String::from(op_code.mnemonic);
@@ -312,6 +334,19 @@ mod chip8_disassembler {
         return Ok(ret);
     }
 
+    /// Dissasemble a OpCode from a slice of bytes
+    /// # Arguments
+    /// * `bytes` - A slice of bytes that holds the OpCode
+    /// # Returns
+    /// * A vector of strings with the dissasembled OpCode
+    /// # Example
+    /// ```
+    /// let bytes = [0x00, 0xE0, 0x00, 0xEE, 0x81, 0x22];
+    /// let result = dissasemble_op_code_from_bytes(&bytes).expect("fail");
+    /// assert_eq!(result[0], "CLS");
+    /// assert_eq!(result[1], "RET");
+    /// assert_eq!(result[2], "AND V1, V2");
+    /// ```
     pub fn dissasemble_op_code_from_bytes(bytes: &[u8]) -> Result<Vec<String>, &str> {
         if bytes.len() % 2 != 0 {
             return Err("Invalid OpCode");
