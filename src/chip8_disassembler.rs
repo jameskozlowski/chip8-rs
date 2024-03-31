@@ -295,6 +295,7 @@ pub mod chip8_disassembler {
     /// * A string with the dissasembled OpCode
     /// # Example
     /// ```
+    /// use chip8::chip8_disassembler::chip8_disassembler::dissasemble_op_code_from_str;
     /// let code = "00E0";
     /// let result = dissasemble_op_code_from_str(code).expect("fail");
     /// assert_eq!(result, "CLS");
@@ -311,6 +312,7 @@ pub mod chip8_disassembler {
     /// * A string with the dissasembled OpCode
     /// # Example
     /// ```
+    /// use chip8::chip8_disassembler::chip8_disassembler::dissasemble_op_code_from_u16;
     /// let code = 0x00E0;
     /// let result = dissasemble_op_code_from_u16(code).expect("fail");
     /// assert_eq!(result, "CLS");
@@ -341,6 +343,7 @@ pub mod chip8_disassembler {
     /// * A vector of strings with the dissasembled OpCode
     /// # Example
     /// ```
+    /// use chip8::chip8_disassembler::chip8_disassembler::dissasemble_op_code_from_bytes;
     /// let bytes = [0x00, 0xE0, 0x00, 0xEE, 0x81, 0x22];
     /// let result = dissasemble_op_code_from_bytes(&bytes).expect("fail");
     /// assert_eq!(result[0], "CLS");

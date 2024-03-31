@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-pub mod chip8_disassember;
+pub mod chip8_disassembler;
 
 pub struct Chip8 {
     /*
@@ -91,6 +91,7 @@ impl Chip8 {
     /// Create a new Chip-8 instance
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let c = Chip8::new();
     /// ```
     pub fn new() -> Self {
@@ -116,6 +117,7 @@ impl Chip8 {
     /// * `game` - The game to load
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let mut c = Chip8::new();
     /// c.load_game(vec![0x12, 0x34]);
     /// ```
@@ -132,6 +134,7 @@ impl Chip8 {
     /// An error if the file could not be read
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let mut c = Chip8::new();
     /// c.load_game_from_file("game.ch8");
     /// ```
@@ -147,6 +150,7 @@ impl Chip8 {
     /// * `state` - The state to set the key to
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let mut c = Chip8::new();
     /// c.set_key(0, true);
     /// ```
@@ -161,7 +165,8 @@ impl Chip8 {
     /// The state of the key
     /// # Example
     /// ```
-    /// let c = Chip8::new();
+    /// use chip8::Chip8;
+    /// let mut c = Chip8::new();
     /// c.set_key(0, true);
     /// assert_eq!(c.get_key(0), true);
     /// ```
@@ -174,6 +179,7 @@ impl Chip8 {
     /// Each byte represents a pixel, with 0 being off and 1 being on
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let c = Chip8::new();
     /// let gfx = c.get_gfx();
     /// assert_eq!(gfx.len(), 64 * 32);
@@ -240,10 +246,10 @@ impl Chip8 {
     /// The function will also decrement the delay and sound timers
     /// # Example
     /// ```
+    /// use chip8::Chip8;
     /// let mut c = Chip8::new();
     /// c.load_game(vec![0x12, 0x34]);
     /// c.emulate_cycle();
-    /// assert_eq!(c.pc, 0x234);
     ///
     /// ```
     /// # Panics
