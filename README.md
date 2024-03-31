@@ -16,3 +16,10 @@ Chip-48 inspired a whole new crop of Chip-8 interpreters for various platforms, 
 [Technical Reference(used for this emulator)](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM)
 
 [More information on Wikipedia](https://en.wikipedia.org/wiki/CHIP-8)
+
+## test rom ##
+Test rom was taken from [here](https://github.com/Skosulor/c8int/tree/master/test)
+to see the output of the test run tests using the following command:
+```bash
+cargo test -- --nocapture
+```

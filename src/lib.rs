@@ -95,6 +95,12 @@ impl Chip8 {
         let opcode =
             (self.memory[self.pc as usize] as u16) << 8 | self.memory[self.pc as usize + 1] as u16;
         self.pc += 2;
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
         match opcode & 0xF000 {
             0x0000 => {
                 if (opcode & 0x00F0) == 0x00C0 {
@@ -125,7 +131,7 @@ impl Chip8 {
                                 self.gfx[x as usize] = self.gfx[(x + 4) as usize];
                             }
                             self.gfx[start as usize..(start + 4) as usize].fill(0);
-                        }                        
+                        }
                     }
                     0x00FC => {
                         let screen_width = if self.extended_gfx_mode { 128 } else { 64 };
@@ -226,7 +232,7 @@ impl Chip8 {
                 0x0007 => {
                     let x = ((opcode & 0x0F00) >> 8) as usize;
                     let y = ((opcode & 0x00F0) >> 4) as usize;
-                    self.v[0xF] = if self.v[x] > self.v[y] { 1 } else { 0 };
+                    self.v[0xF] = if self.v[x] > self.v[y] { 0 } else { 1 };
                     self.v[x] = self.v[y].wrapping_sub(self.v[x]);
                 }
                 0x000E => {
@@ -430,7 +436,7 @@ mod tests {
         for y in 0..32 {
             let start = y * 64;
             ex[start as usize..(start + 4) as usize].fill(0);
-        }  
+        }
         assert_eq!(c.gfx, ex);
     }
     #[test]
@@ -445,7 +451,7 @@ mod tests {
         for y in 0..32 {
             let start = y * 64;
             ex[(start + 60) as usize..(start + 64) as usize].fill(0);
-        }  
+        }
         assert_eq!(c.gfx, ex);
     }
     #[test]
@@ -669,13 +675,13 @@ mod tests {
         c.memory[0x201] = (opcode & 0xFF) as u8;
         c.emulate_cycle();
         assert_eq!(c.v[0], 0xDE);
-        assert_eq!(c.v[0xF], 1);
+        assert_eq!(c.v[0xF], 0);
         c.v[0] = 0x01;
         c.v[1] = 0x02;
         c.pc = 0x200;
         c.emulate_cycle();
         assert_eq!(c.v[0], 0x01);
-        assert_eq!(c.v[0xF], 0);
+        assert_eq!(c.v[0xF], 1);
     }
     #[test]
     fn test_opcode_8xye() {
@@ -797,7 +803,7 @@ mod tests {
         c.memory[0x200] = (opcode >> 8) as u8;
         c.memory[0x201] = (opcode & 0xFF) as u8;
         c.emulate_cycle();
-        assert_eq!(c.v[0], 0x12);
+        assert_eq!(c.v[0], 0x11);
     }
     #[test]
     fn test_opcode_fx0a() {
@@ -943,5 +949,20 @@ mod tests {
         assert_eq!(c.v[0], 0x12);
         assert_eq!(c.v[1], 0x34);
         assert_eq!(c.v[2], 0x56);
+    }
+    #[test]
+    fn test_test_rom() {
+        let mut c = Chip8::new();
+        c.load_game_from_file("c8_test.c8")
+            .expect("Failed to load game");
+        for _i in 0..500 {
+            c.emulate_cycle();
+        }
+        for y in 0..32 {
+            for x in 0..64 {
+                print!("{}", c.gfx[y * 64 + x]);
+            }
+            println!();
+        }
     }
 }
