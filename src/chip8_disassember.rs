@@ -279,24 +279,48 @@ mod chip8_disassembler {
         u16::from_str_radix(hex, 16).unwrap()
     }
 
-    fn get_op_code_from_hex(code: &str) -> Result<&OpCode, &str> {
+    fn get_op_code_from_hex(code: u16) -> Result<&'static OpCode, &'static str> {
         for op_code in OP_CODES.iter() {
-            if op_code.code == hex_to_u16(code) & op_code.bit_mask {
+            if op_code.code == code & op_code.bit_mask {
                 return Ok(op_code);
             }
         }
         return Err("Invalid OpCode");
     }
 
-    pub fn dissasemble_op_code(code: &str) -> Result<String, &str> {
+    pub fn dissasemble_op_code_from_str(code: &str) -> Result<String, &str> {
+        let code = hex_to_u16(code);
+        return dissasemble_op_code_from_u16(code);
+    }
+
+    pub fn dissasemble_op_code_from_u16(code: u16) -> Result<String, &'static str> {
         let op_code = get_op_code_from_hex(code)?;
         let mut ret = String::from(op_code.mnemonic);
         for i in 0..4 {
             let c = op_code.code_string.chars().nth(i).unwrap();
             if c == 'X' || c == 'Y' || c == 'N' || c == 'K' {
-                let value = code.chars().nth(i).unwrap();
+                let value = match i {
+                    0 => (code & 0xF000) >> 12,
+                    1 => (code & 0x0F00) >> 8,
+                    2 => (code & 0x00F0) >> 4,
+                    3 => code & 0x000F,
+                    _ => 0,
+                };
                 ret = ret.replacen(&c.to_string(), &value.to_string(), 1);
             }
+        }
+        return Ok(ret);
+    }
+
+    pub fn dissasemble_op_code_from_bytes(bytes: &[u8]) -> Result<Vec<String>, &str> {
+        if bytes.len() % 2 != 0 {
+            return Err("Invalid OpCode");
+        }
+        let mut ret = Vec::new();
+        for i in (0..bytes.len()).step_by(2) {
+            let code = (bytes[i] as u16) << 8 | bytes[i + 1] as u16;
+            let str = dissasemble_op_code_from_u16(code)?;
+            ret.push(str);
         }
         return Ok(ret);
     }
@@ -306,18 +330,56 @@ mod chip8_disassembler {
 
         #[test]
         fn test_dissasemble_op_code() {
-            assert_eq!(dissasemble_op_code("00E0").expect("fail"), "CLS");
-            assert_eq!(dissasemble_op_code("00EE").expect("fail"), "RET");
-            assert_eq!(dissasemble_op_code("1123").expect("fail"), "JP 123");
-            assert_eq!(dissasemble_op_code("2123").expect("fail"), "CALL 123");
-            assert_eq!(dissasemble_op_code("3112").expect("fail"), "SE V1, 12");
-            assert_eq!(dissasemble_op_code("4112").expect("fail"), "SNE V1, 12");
-            assert_eq!(dissasemble_op_code("5120").expect("fail"), "SE V1, V2");
-            assert_eq!(dissasemble_op_code("6112").expect("fail"), "LD V1, 12");
-            assert_eq!(dissasemble_op_code("7112").expect("fail"), "ADD V1, 12");
-            assert_eq!(dissasemble_op_code("8120").expect("fail"), "LD V1, V2");
-            assert_eq!(dissasemble_op_code("8121").expect("fail"), "OR V1, V2");
-            assert_eq!(dissasemble_op_code("8122").expect("fail"), "AND V1, V2");
+            assert_eq!(dissasemble_op_code_from_str("00E0").expect("fail"), "CLS");
+            assert_eq!(dissasemble_op_code_from_str("00EE").expect("fail"), "RET");
+            assert_eq!(
+                dissasemble_op_code_from_str("1123").expect("fail"),
+                "JP 123"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("2123").expect("fail"),
+                "CALL 123"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("3112").expect("fail"),
+                "SE V1, 12"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("4112").expect("fail"),
+                "SNE V1, 12"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("5120").expect("fail"),
+                "SE V1, V2"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("6112").expect("fail"),
+                "LD V1, 12"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("7112").expect("fail"),
+                "ADD V1, 12"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("8120").expect("fail"),
+                "LD V1, V2"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("8121").expect("fail"),
+                "OR V1, V2"
+            );
+            assert_eq!(
+                dissasemble_op_code_from_str("8122").expect("fail"),
+                "AND V1, V2"
+            );
+        }
+        #[test]
+        fn test_dissasemble_op_code_from_bytes() {
+            let bytes = [0x00, 0xE0, 0x00, 0xEE, 0x81, 0x22];
+            let result = dissasemble_op_code_from_bytes(&bytes).expect("fail");
+            assert_eq!(result[0], "CLS");
+            assert_eq!(result[1], "RET");
+            assert_eq!(result[2], "AND V1, V2");
         }
     }
 }

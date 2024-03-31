@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 mod chip8_disassember;
 
 struct Chip8 {
