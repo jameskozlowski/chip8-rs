@@ -1,3 +1,5 @@
+mod chip8_disassember;
+
 struct Chip8 {
     /*
      Memory Map:
